@@ -1,0 +1,118 @@
+package gui;
+
+import javax.swing.JFrame;
+import javax.swing.UIManager;
+import javax.swing.text.SimpleAttributeSet;
+import javax.swing.text.StyleConstants;
+import javax.swing.text.StyledDocument;
+
+import com.fazecast.jSerialComm.SerialPort;
+
+import net.miginfocom.swing.MigLayout;
+import javax.swing.JButton;
+import java.awt.event.ActionListener;
+import java.util.Scanner;
+import java.awt.event.ActionEvent;
+import javax.swing.JComboBox;
+import javax.swing.JTextPane;
+import java.awt.Font;
+
+public class SpeedSign {
+
+	public JFrame frame;
+	static SerialPort port;
+
+	/**
+	 * Create the application.
+	 */
+	public SpeedSign() {
+		try {
+			UIManager.setLookAndFeel("javax.swing.plaf.nimbus.NimbusLookAndFeel");
+		} catch (Exception e){
+			e.printStackTrace();
+		}
+		initialize();
+	}
+
+	/**
+	 * Initialize the contents of the frame.
+	 */
+	private void initialize() {
+		frame = new JFrame();
+		frame.setBounds(100, 100, 691, 522);
+		frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+		frame.getContentPane().setLayout(new MigLayout("", "[grow][grow][][]", "[][][][223.00][grow]"));
+		
+		JComboBox portList = new JComboBox();
+		frame.getContentPane().add(portList, "cell 0 0 3 1,growx");
+		
+		JTextPane txtpnSpeedLimit = new JTextPane();
+		txtpnSpeedLimit.setFont(new Font("Tahoma", Font.BOLD, 70));
+		txtpnSpeedLimit.setText("SPEED LIMIT");
+		frame.getContentPane().add(txtpnSpeedLimit, "cell 0 1,grow");
+		
+		JTextPane textPane = new JTextPane();
+		textPane.setEditable(false);
+		textPane.setFont(new Font("Tahoma", Font.PLAIN, 150));
+		frame.getContentPane().add(textPane, "cell 0 2 1 2,grow");
+		
+		StyledDocument doc = textPane.getStyledDocument();
+		SimpleAttributeSet center = new SimpleAttributeSet();
+		StyleConstants.setAlignment(center, StyleConstants.ALIGN_CENTER);
+		doc.setParagraphAttributes(0, doc.getLength(), center, false);
+		
+		// add port names to combo box
+		SerialPort[] portNames = SerialPort.getCommPorts();
+		for(int i = 0; i < portNames.length; i++)
+			portList.addItem(portNames[i].getSystemPortName());
+		
+		JButton btnConnect = new JButton("Connect");
+		btnConnect.addActionListener(new ActionListener() {
+			public void actionPerformed(ActionEvent arg0) {
+
+				if(btnConnect.getText().equals("Connect")) {
+					// attempt to connect to the serial port
+					port = SerialPort.getCommPort(portList.getSelectedItem().toString());
+					port.setComPortTimeouts(SerialPort.TIMEOUT_SCANNER, 0, 0);
+					if(port.openPort()) {
+						btnConnect.setText("Disconnect");
+						portList.setEnabled(false);
+					}
+					
+					Thread thread = new Thread(){
+						@Override public void run() {
+							Scanner scanner = new Scanner(port.getInputStream());
+							while(scanner.hasNextLine()) {
+								try {
+									String line = scanner.nextLine();
+									System.out.println(line);
+									textPane.setText(line+"\nKM/H");
+									
+								} catch(Exception e) {}
+							}
+							scanner.close();
+						}
+					};
+					thread.start();
+				} else {
+					// disconnect from the serial port
+					if(port.isOpen()) {
+						port.closePort();
+						portList.setEnabled(true);
+						btnConnect.setText("Connect");
+					}
+				}
+			}
+		});
+		frame.getContentPane().add(btnConnect, "cell 3 0");
+		
+//		JTextPane txtpnKmh = new JTextPane();
+//		txtpnKmh.setFont(new Font("Tahoma", Font.PLAIN, 99));
+//		txtpnKmh.setText("KM/H");
+//		StyledDocument doc_txtpnKmh = txtpnKmh.getStyledDocument();
+//		SimpleAttributeSet center_txtpnKmh = new SimpleAttributeSet();
+//		StyleConstants.setAlignment(center, StyleConstants.ALIGN_CENTER);
+//		doc_txtpnKmh.setParagraphAttributes(0, doc_txtpnKmh.getLength(), center, false);
+//		frame.getContentPane().add(txtpnKmh, "cell 0 4,grow");
+	}
+}
